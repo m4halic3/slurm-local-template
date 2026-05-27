@@ -94,6 +94,36 @@ Siga os passos abaixo para mapear e replicar o ambiente de testes na sua máquin
    sudo chmod 644 /etc/slurm/slurm.conf
    ``` 
 
+### 🐧 Particularidades para Ambientes Debian / Ubuntu
+
+Caso esteja replicando este ambiente em distribuições baseadas em Debian ou Ubuntu, existem pequenos ajustes nos nomes dos pacotes e nos caminhos dos binários do sistema que você deve herdar:
+
+1. **Instalação dos Pacotes Cores:**
+   Diferente do Arch, os daemons mestre e trabalhador são divididos em pacotes separados no gerenciador `apt`:
+   ```bash
+   sudo apt update
+   sudo apt install slurm-wlm slurmctld slurmd -y
+   ``` 
+2. **Diretórios e Permissões Nativas:**
+  O Debian costuma criar o usuário de sistema `slurm`. Certifique-se de que ele seja o dono do arquivo de configuração clonado:
+  ```bash
+  sudo cp slurm.conf /etc/slurm/slurm.conf
+  sudo chown slurm:slurm /etc/slurm/slurm.conf
+  sudo chmod 644 /etc/slurm/slurm.conf
+  ```
+3. **Caminho dos Binários de Execução:**
+  No Debian/Ubuntu, os daemons são instalados por padrão em `/usr/sbin/` (e não em `/usr/bin/`). Ao abrir as abas de monitoramento, adapte as chamadas dos comandos da seguinte forma:
+
+  * **Na Aba 1 (Mestre):**
+    ```bash
+    export SLURM_CONF=/etc/slurm/slurm.conf
+    sudo /usr/sbin/slurmctld -D -f /etc/slurm/slurm.conf
+    ```
+  * **Na Aba 2 (Trabalhador):**
+    ```bash
+    sudo -E /usr/sbin/slurmd -D -f /etc/slurm/slurm.conf
+    ```
+
 💻 Execução e Monitoramento Local
 
 O script `rodar_simulacao.sh` executa uma tarefa paralela simulada de temporização estruturada através de diretivas nativas `#SBATCH`. Para rodar o ecossistema completo e visualizar os dados de desempenho, siga a estratégia de abas abaixo:
