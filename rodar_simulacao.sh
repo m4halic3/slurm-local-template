@@ -7,8 +7,7 @@
 
 # Exibe mensagens genéricas para monitoramento do log de execução
 echo "Iniciando o teste de estresse local do Slurm..."
-echo "Executando no host: $(hostname)"
-
+echo "Executando no host: $SLURM_NODELIST"
 # Simulação de carga de trabalho em lote (Batch Job)
 echo "Processando rotina de computação paralela simulada..."
 sleep 10
