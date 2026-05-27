@@ -1,0 +1,13 @@
+# Logs de execução do Slurm (gerados pelos jobs)
+*.log
+slurm-*.out
+
+.dist/
+# Arquivos temporários do sistema e editores
+.DS_Store
+*~
+*.swp
+
+# Pastas de ambiente virtual ou cache caso decida usar scripts em Python/C
+__pycache__/
+*.o
