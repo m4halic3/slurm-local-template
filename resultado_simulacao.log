@@ -1,5 +1,4 @@
 Iniciando o teste de estresse local do Slurm...
-/var/spool/slurmd/job00002/slurm_script: linha 10: hostname: comando não encontrado
-Executando no host: 
+Executando no host: archMah
 Processando rotina de computação paralela simulada...
 Rotina de teste concluída com sucesso!
