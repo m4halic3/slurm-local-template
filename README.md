@@ -39,40 +39,32 @@ O diagrama abaixo ilustra como este repositório transforma uma máquina pessoal
 
 ```mermaid
 graph TD
-    %% Estilos Gerais do Diagrama
-    classDef arquivo fill:#f1fa8c,stroke:#44475a,stroke-width:1px,color:#282a36,stroke-dasharray: 5 5;
-    classDef daemon fill:#bd93f9,stroke:#44475a,stroke-width:2px,color:#282a36,font-weight:bold;
-    classDef terminal fill:#282a36,stroke:#f8f8f2,stroke-width:1px,color:#f8f8f2,rx:5,ry:5;
-    classDef comando fill:#50fa7b,stroke:#282a36,stroke-width:1px,color:#282a36;
+    Conf[slurm.conf <br> IP: 127.0.0.1]
 
-    %% Elementos de Configuração Interna
-    Conf[slurm.conf<br>IP: 127.0.0.1]:::arquivo
-
-    %% Estrutura das Abas do Terminal
-    subgraph Terminal [Terminal do Sistema - Processamento em Loopback]
-        direction LR
-        Aba1[Aba 1: Controlador]:::terminal
-        Aba2[Aba 2: Trabalhador]:::terminal
-        Aba3[Aba 3: Operador]:::terminal
+    subgraph Terminal [Terminal do Sistema - Loopback]
+        Aba1[Aba 1: Controlador]
+        Aba2[Aba 2: Trabalhador]
+        Aba3[Aba 3: Operador]
     end
 
-    %% Processos da Aba 1 (Mestre)
-    Aba1 -->|Leitura Inicial| Conf
-    Aba1 -->|Instancia| Mestre[slurmctld<br>Daemon Mestre]:::daemon
-    Mestre -->|Escuta Porta 6817| Mestre
+    Aba1 -->|Leitura Config| Conf
+    Aba1 -->|Instancia| Mestre(slurmctld Daemon)
+    
+    Aba2 -->|Leitura Config| Conf
+    Aba2 -->|Instancia| No(slurmd Daemon)
+    
+    No -->|Registro de Nó| Mestre
 
-    %% Processos da Aba 2 (Nó Trabalhador)
-    Aba2 -->|Herança de Variável| Conf
-    Aba2 -->|Instancia| No[slurmd<br>Daemon Trabalhador]:::daemon
-    No -->|Registro de Nó Ativo| Mestre
-    No -->|Escuta Porta 6818| No
+    Aba3 -->|sbatch script.sh| Cmd[Submissão]
+    Cmd -->|Fila de Espera| Mestre
+    Mestre -->|Dispara Job| No
+    No -->|Executa| Script[Script em Lote]
+    Script -->|Log| LogOut[resultado_simulacao.log]
 
-    %% Processos da Aba 3 (Submissão e Saída)
-    Aba3 -->|sbatch rodar_simulacao.sh| CmdSubmit:::comando
-    CmdSubmit -->|Envia Job para Fila| Mestre
-    Mestre -->|Escalona Tarefa| No
-    No -->|Executa Processos| ScriptExec[Script em Lote]:::comando
-    ScriptExec -->|Grava Resultado| LogOut[resultado_simulacao.log]:::arquivo
+    style Conf fill:#f1fa8c,stroke:#333,stroke-width:1px
+    style Mestre fill:#bd93f9,stroke:#333,stroke-width:2px
+    style No fill:#bd93f9,stroke:#333,stroke-width:2px
+    style LogOut fill:#f1fa8c,stroke:#333,stroke-width:1px
 ```
 
 🔧 Configuração do Ambiente Local
@@ -84,14 +76,22 @@ Siga os passos abaixo para mapear e replicar o ambiente de testes na sua máquin
    git clone [https://github.com/m4halic3/slurm-local-template](https://github.com/m4halic3/slurm-local-template)
    cd slurm-local-template
    ``` 
-2. **Copiar o arquivo de configuração para o diretório do sistema:**
+2. **Mapear o arquivo de configuração para o sistema:**
    ```bash
    sudo cp slurm.conf /etc/slurm/slurm.conf
-   ``` 
-3. **Ajustar as permissões de segurança de arquivos do Linux:**
-   ```bash
    sudo chmod 755 /etc/slurm
    sudo chmod 644 /etc/slurm/slurm.conf
+   ``` 
+3. **Ativar o serviço de autenticação obrigatório (MUNGE)::**
+O Slurm exige o daemon do MUNGE ativo para criptografar as mensagens entre os processos de controle, mesmo rodando em modo local.
+   ```bash
+   sudo systemctl enable --now munge
+   ``` 
+4. **Preparar os diretórios de Spool (Histórico de Fila):**
+Preparar os diretórios de Spool (Histórico de Fila):
+   ```bash
+   sudo mkdir -p /var/spool/slurmctld /var/spool/slurmd
+   sudo chmod 755 /var/spool/slurmctld /var/spool/slurmd
    ``` 
 
 ### 🐧 Particularidades para Ambientes Debian / Ubuntu
@@ -104,20 +104,18 @@ Caso esteja replicando este ambiente em distribuições baseadas em Debian ou Ub
    sudo apt update
    sudo apt install slurm-wlm slurmctld slurmd -y
    ``` 
-2. **Diretórios e Permissões Nativas:**
+2. **Ajuste de Permissões Nativas:**
   O Debian costuma criar o usuário de sistema `slurm`. Certifique-se de que ele seja o dono do arquivo de configuração clonado:
   ```bash
-  sudo cp slurm.conf /etc/slurm/slurm.conf
   sudo chown slurm:slurm /etc/slurm/slurm.conf
-  sudo chmod 644 /etc/slurm/slurm.conf
+  sudo chown -R slurm:slurm /var/spool/slurmctld /var/spool/slurmd
   ```
 3. **Caminho dos Binários de Execução:**
   No Debian/Ubuntu, os daemons são instalados por padrão em `/usr/sbin/` (e não em `/usr/bin/`). Ao abrir as abas de monitoramento, adapte as chamadas dos comandos da seguinte forma:
 
   * **Na Aba 1 (Mestre):**
     ```bash
-    export SLURM_CONF=/etc/slurm/slurm.conf
-    sudo /usr/sbin/slurmctld -D -f /etc/slurm/slurm.conf
+    sudo -E /usr/sbin/slurmctld -D -f /etc/slurm/slurm.conf
     ```
   * **Na Aba 2 (Trabalhador):**
     ```bash
@@ -138,8 +136,10 @@ O script `rodar_simulacao.sh` executa uma tarefa paralela simulada de temporiza�
 2. **Inicializar o Nó Trabalhador (Aba 2)**
    Em uma nova aba, inicialize o daemon executor. Use a flag `sudo -E` para forçar o comando de superusuário a herdar a variável `SLURM_CONF` declarada na sessão do seu usuário:
    ```bash
+   sudo systemctl stop slurmd 2>/dev/null
+   export SLURM_CONF=/etc/slurm/slurm.conf
    sudo -E /usr/bin/slurmd -D -f /etc/slurm/slurm.conf
-   ```  
+   ``` 
 
 3. **Executar e Monitorar os Jobs (Aba 3)**
    Com os dois serviços rodando ativamente nas telas anteriores, utilize uma terceira aba para gerenciar e disparar os testes:
